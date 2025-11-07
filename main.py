@@ -284,6 +284,9 @@ Your Answer:
         return context, prompt
 
 
+os.environ["NVIDIA_API_KEY"] = '...'
+if os.environ["NVIDIA_API_KEY"] == "":
+    print("Please check your API")
 
 EMBED_MODEL = 'paraphrase-multilingual-MiniLM-L12-v2'
 EPS_VALUE = 0.023 # The value you found from your k-distance plot
