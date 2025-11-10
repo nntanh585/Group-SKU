@@ -2,9 +2,6 @@ import pandas as pd
 import numpy as np
 from sentence_transformers import SentenceTransformer
 from sklearn.cluster import DBSCAN, HDBSCAN
-import os
-from langchain_nvidia_ai_endpoints import ChatNVIDIA
-from langchain.prompts import ChatPromptTemplate
 import faiss
 import json
 import re
@@ -249,44 +246,39 @@ class ProductVectorManager:
         self._product_buffer = []
         print("Buffer flush complete.")
 
-    # ----------------- RAG PROMPT -----------------
-    def generate_rag_prompt(self, user_question: str, k: int = 5) -> str:
-        self._check_ready()
+#     # ----------------- RAG PROMPT -----------------
+#     def generate_rag_prompt(self, user_question: str, k: int = 5) -> str:
+#         self._check_ready()
 
-        PROMPT_TEMPLATE = """
-Based on the following context:
+#         PROMPT_TEMPLATE = """
+# Based on the following context:
 
---- Context ---
-{context}
---- End Context ---
+# --- Context ---
+# {context}
+# --- End Context ---
 
-Please answer the user's question in a friendly manner, using only the information from the context.
+# Please answer the user's question in a friendly manner, using only the information from the context.
 
-Question: {question}
+# Question: {question}
 
-Your Answer:
-"""
-        question_vector = self.model.encode([user_question]).astype('float32')
-        faiss.normalize_L2(question_vector)
+# Your Answer:
+# """
+#         question_vector = self.model.encode([user_question]).astype('float32')
+#         faiss.normalize_L2(question_vector)
 
-        D, I = self.index.search(question_vector, k=k)
-        context_strings = []
-        for idx in I[0]:
-            if idx < 0: continue # FAISS can return -1 if index is empty/small
-            product_row = self.df.iloc[idx]
-            context_strings.append(self._get_text_for_embedding(product_row))
+#         D, I = self.index.search(question_vector, k=k)
+#         context_strings = []
+#         for idx in I[0]:
+#             if idx < 0: continue # FAISS can return -1 if index is empty/small
+#             product_row = self.df.iloc[idx]
+#             context_strings.append(self._get_text_for_embedding(product_row))
 
-        context = "\n".join([f"- Related Product: {txt}" for txt in context_strings])
-        prompt = ChatPromptTemplate.from_template(PROMPT_TEMPLATE).format(
-            context=context,
-            question=user_question
-        )
-        return context, prompt
-
-
-os.environ["NVIDIA_API_KEY"] = '...'
-if os.environ["NVIDIA_API_KEY"] == "":
-    print("Please check your API")
+#         context = "\n".join([f"- Related Product: {txt}" for txt in context_strings])
+#         prompt = ChatPromptTemplate.from_template(PROMPT_TEMPLATE).format(
+#             context=context,
+#             question=user_question
+#         )
+#         return context, prompt
 
 EMBED_MODEL = 'paraphrase-multilingual-MiniLM-L12-v2'
 EPS_VALUE = 0.023 # The value you found from your k-distance plot
@@ -320,23 +312,3 @@ try:
     print(f"Result:\nNew product has been assigned Group SKU ID: {assigned_id}")
 except Exception as e:
     print(f"Error: {e}")
-
-#RAG
-LLM_MODEL = "nvidia/nvidia-nemotron-nano-9b-v2"
-
-question = "Do you have any Iphone, I want to advise about Iphone?"
-try:
-    contex, prompt = manager.generate_rag_prompt(question, k=5)
-    llm = ChatNVIDIA(model=LLM_MODEL)
-    response = llm.invoke(prompt)
-    print("\nAnswer:")
-    print(response.content if hasattr(response, "content") else response)
-    print("\nSources:")
-    print(contex)
-except Exception as e:
-    print(f"Error: {e}")
-
-df = pd.read_csv('./result.csv')[['product_id', 'product_name', 'group_sku_id']].sort_values(by='group_sku_id')
-df.to_csv('output.csv', index=False)
-
-    
